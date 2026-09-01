@@ -9,6 +9,11 @@ import type { MatchResult, PlayerScore, Session } from '../types';
 
 const TEAM_LIMIT = 2;
 
+type StandingRow = PlayerScore & {
+    position: number;
+    status: 'leader' | 'rising' | 'falling' | 'neutral';
+};
+
 export default function SessionScreen() {
     const [session, setSession] = useState<Session | null>(null);
     const [teamA, setTeamA] = useState<string[]>([]);
@@ -34,7 +39,11 @@ export default function SessionScreen() {
         });
     }, [session]);
 
+    const isSessionClosed = session?.status === 'finalizada';
+
     const togglePlayer = (team: 'teamA' | 'teamB', playerId: string) => {
+        if (isSessionClosed) return;
+
         const target = team === 'teamA' ? teamA : teamB;
         const other = team === 'teamA' ? teamB : teamA;
 
@@ -96,11 +105,28 @@ export default function SessionScreen() {
             markPlayers(match.teamB, match.winner === 'teamB');
         }
 
-        return Array.from(scoreMap.values()).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
+        return Array.from(scoreMap.values()).sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name));
     }, [availablePlayers, session]);
 
+    const standings = useMemo<StandingRow[]>(() => {
+        const rows = scoreRows.map((row, index) => {
+            let status: StandingRow['status'] = 'neutral';
+            if (index === 0) status = 'leader';
+            else if (index < 2) status = 'rising';
+            else if (index >= Math.max(0, scoreRows.length - 2)) status = 'falling';
+
+            return {
+                ...row,
+                position: index + 1,
+                status,
+            };
+        });
+
+        return rows;
+    }, [scoreRows]);
+
     const onSaveMatch = async () => {
-        if (!session) return;
+        if (!session || isSessionClosed) return;
         if (teamA.length !== TEAM_LIMIT || teamB.length !== TEAM_LIMIT) {
             Alert.alert('Faltan jugadores', 'Debes seleccionar 2 jugadores para cada cuadro.');
             return;
@@ -131,6 +157,28 @@ export default function SessionScreen() {
         setWinner(null);
     };
 
+    const onFinishSession = () => {
+        if (!session) return;
+
+        Alert.alert('Terminar jornada', '¿Confirmás que querés cerrar la jornada y guardar la clasificación final?', [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+                text: 'Confirmar',
+                style: 'destructive',
+                onPress: async () => {
+                    const finalized: Session = {
+                        ...session,
+                        status: 'finalizada',
+                    };
+
+                    await saveSession(finalized);
+                    setSession(finalized);
+                    Alert.alert('Jornada finalizada', 'La clasificación final quedó guardada.');
+                },
+            },
+        ]);
+    };
+
     if (!session) {
         return (
             <SafeAreaView style={styles.safeArea}>
@@ -146,73 +194,116 @@ export default function SessionScreen() {
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
                 <Text style={styles.title}>Jornada en juego</Text>
-                <Text style={styles.description}>Anotá cada partido y se actualiza la tabla del día.</Text>
+                <Text style={styles.description}>
+                    {isSessionClosed
+                        ? 'La jornada está cerrada. Se guardó la clasificación final.'
+                        : 'Anotá cada partido y se actualiza la tabla del día.'}
+                </Text>
 
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Cuadro A</Text>
-                    <View style={styles.playerGrid}>
-                        {availablePlayers.map((player) => {
-                            const selected = teamA.includes(player.id);
-                            return (
-                                <Pressable
-                                    key={`a-${player.id}`}
-                                    onPress={() => togglePlayer('teamA', player.id)}
-                                    style={[styles.playerChip, selected && styles.playerChipSelected]}
-                                >
-                                    <Text style={[styles.playerChipText, selected && styles.playerChipTextSelected]}>{player.name}</Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Cuadro B</Text>
-                    <View style={styles.playerGrid}>
-                        {availablePlayers.map((player) => {
-                            const selected = teamB.includes(player.id);
-                            return (
-                                <Pressable
-                                    key={`b-${player.id}`}
-                                    onPress={() => togglePlayer('teamB', player.id)}
-                                    style={[styles.playerChip, selected && styles.playerChipSelectedAlt]}
-                                >
-                                    <Text style={[styles.playerChipText, selected && styles.playerChipTextSelected]}>{player.name}</Text>
-                                </Pressable>
-                            );
-                        })}
-                    </View>
-                </View>
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>¿Quién ganó?</Text>
-                    <View style={styles.winnerRow}>
-                        <Pressable
-                            onPress={() => setWinner('teamA')}
-                            style={[styles.winnerButton, winner === 'teamA' && styles.winnerButtonActive]}
-                        >
-                            <Text style={styles.winnerButtonText}>Cuadro A</Text>
-                        </Pressable>
-                        <Pressable
-                            onPress={() => setWinner('teamB')}
-                            style={[styles.winnerButton, winner === 'teamB' && styles.winnerButtonActiveAlt]}
-                        >
-                            <Text style={styles.winnerButtonText}>Cuadro B</Text>
-                        </Pressable>
-                    </View>
-                </View>
-
-                <ActionButton title="Guardar partido" onPress={onSaveMatch} />
-
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Tabla del día</Text>
-                    {scoreRows.map((row) => (
-                        <View key={row.playerId} style={styles.scoreRow}>
-                            <Text style={styles.scoreName}>{row.name}</Text>
-                            <Text style={styles.scoreValue}>{row.points} pts</Text>
+                {!isSessionClosed ? (
+                    <>
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Cuadro A</Text>
+                            <View style={styles.playerGrid}>
+                                {availablePlayers.map((player) => {
+                                    const selected = teamA.includes(player.id);
+                                    return (
+                                        <Pressable
+                                            key={`a-${player.id}`}
+                                            onPress={() => togglePlayer('teamA', player.id)}
+                                            style={[styles.playerChip, selected && styles.playerChipSelected]}
+                                        >
+                                            <Text style={[styles.playerChipText, selected && styles.playerChipTextSelected]}>{player.name}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
                         </View>
-                    ))}
+
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>Cuadro B</Text>
+                            <View style={styles.playerGrid}>
+                                {availablePlayers.map((player) => {
+                                    const selected = teamB.includes(player.id);
+                                    return (
+                                        <Pressable
+                                            key={`b-${player.id}`}
+                                            onPress={() => togglePlayer('teamB', player.id)}
+                                            style={[styles.playerChip, selected && styles.playerChipSelectedAlt]}
+                                        >
+                                            <Text style={[styles.playerChipText, selected && styles.playerChipTextSelected]}>{player.name}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+                        </View>
+
+                        <View style={styles.section}>
+                            <Text style={styles.sectionTitle}>¿Quién ganó?</Text>
+                            <View style={styles.winnerRow}>
+                                <Pressable
+                                    onPress={() => setWinner('teamA')}
+                                    style={[styles.winnerButton, winner === 'teamA' && styles.winnerButtonActive]}
+                                >
+                                    <Text style={styles.winnerButtonText}>Cuadro A</Text>
+                                </Pressable>
+                                <Pressable
+                                    onPress={() => setWinner('teamB')}
+                                    style={[styles.winnerButton, winner === 'teamB' && styles.winnerButtonActiveAlt]}
+                                >
+                                    <Text style={styles.winnerButtonText}>Cuadro B</Text>
+                                </Pressable>
+                            </View>
+                        </View>
+
+                        <ActionButton title="Guardar partido" onPress={onSaveMatch} />
+                    </>
+                ) : (
+                    <View style={styles.alertBanner}>
+                        <Text style={styles.alertBannerText}>Jornada cerrada. No se permiten más partidos.</Text>
+                    </View>
+                )}
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Clasificación en vivo</Text>
+                    {standings.length === 0 ? (
+                        <Text style={styles.placeholder}>Todavía no hubo resultados.</Text>
+                    ) : (
+                        standings.map((row) => (
+                            <View
+                                key={row.playerId}
+                                style={[
+                                    styles.standingRow,
+                                    row.status === 'leader' && styles.standingRowLeader,
+                                    row.status === 'rising' && styles.standingRowRising,
+                                    row.status === 'falling' && styles.standingRowFalling,
+                                ]}
+                            >
+                                <View style={styles.standingMeta}>
+                                    <View style={[styles.positionBadge, row.status === 'falling' && styles.positionBadgeFalling]}>
+                                        <Text style={styles.positionBadgeText}>#{row.position}</Text>
+                                    </View>
+                                    <View>
+                                        <Text style={styles.scoreName}>{row.name}</Text>
+                                        <Text style={styles.scoreSubtext}>
+                                            {row.wins}G · {row.losses}P · {row.matchesPlayed}PJ
+                                        </Text>
+                                    </View>
+                                </View>
+                                <Text style={styles.scoreValue}>{row.points} pts</Text>
+                            </View>
+                        ))
+                    )}
                 </View>
+
+                {!isSessionClosed && (
+                    <ActionButton
+                        title="Terminar jornada"
+                        subtitle="Guardar clasificación final"
+                        onPress={onFinishSession}
+                        variant="secondary"
+                    />
+                )}
 
                 <Link href="/" asChild>
                     <ActionButton title="Volver al inicio" variant="secondary" />
@@ -242,6 +333,17 @@ const styles = StyleSheet.create({
         color: '#465A75',
         fontSize: 16,
         lineHeight: 24,
+    },
+    alertBanner: {
+        backgroundColor: '#FFF7ED',
+        borderWidth: 1,
+        borderColor: '#F59E0B',
+        padding: 12,
+        borderRadius: 12,
+    },
+    alertBannerText: {
+        color: '#9A5B00',
+        fontWeight: '700',
     },
     section: {
         backgroundColor: '#fff',
@@ -313,13 +415,56 @@ const styles = StyleSheet.create({
         color: '#7284A0',
         fontSize: 15,
     },
-    scoreRow: {
+    standingRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#EAEFF7',
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: '#E6ECF6',
+        backgroundColor: '#F9FBFF',
+        marginBottom: 8,
+    },
+    standingRowLeader: {
+        backgroundColor: '#E9F9EE',
+        borderColor: '#B7EDC7',
+    },
+    standingRowRising: {
+        backgroundColor: '#EAF3FF',
+        borderColor: '#CDE2FF',
+    },
+    standingRowFalling: {
+        backgroundColor: '#FFF1F1',
+        borderColor: '#F8C9C9',
+    },
+    standingMeta: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        flex: 1,
+    },
+    positionBadge: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: '#E7EEF9',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    positionBadgeFalling: {
+        backgroundColor: '#FDECEC',
+    },
+    positionBadgeText: {
+        color: '#15263C',
+        fontSize: 12,
+        fontWeight: '800',
+    },
+    scoreSubtext: {
+        color: '#697F9D',
+        fontSize: 12,
+        marginTop: 2,
     },
     scoreName: {
         color: '#16263C',
