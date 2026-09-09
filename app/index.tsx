@@ -100,3 +100,58 @@ const styles = StyleSheet.create({
         gap: 16,
     },
 });
+
+
+
+// import { StatusBar } from 'expo-status-bar';
+// import { useState } from 'react';
+// import { Button, StyleSheet, Text, View } from 'react-native';
+// import { getJugadores } from '../api/client';
+
+// export default function App() {
+//     const [jugadores, setJugadores] = useState<any[]>([]);
+//     const [error, setError] = useState('');
+
+//     async function cargarJugadores() {
+//         try {
+//             setError('');
+
+//             const data = await getJugadores();
+
+//             setJugadores(data);
+//         } catch (error) {
+//             setError('No se pudieron cargar los jugadores');
+//             console.error(error);
+//         }
+//     }
+
+//     return (
+//         <View style={styles.container}>
+//             <Text>Frontón</Text>
+
+//             <Button
+//                 title="Cargar jugadores"
+//                 onPress={cargarJugadores}
+//             />
+
+//             {error !== '' && <Text>{error}</Text>}
+
+//             {jugadores.map((jugador) => (
+//                 <Text key={jugador.id}>
+//                     {jugador.nombre}
+//                 </Text>
+//             ))}
+
+//             <StatusBar style="auto" />
+//         </View>
+//     );
+// }
+
+// const styles = StyleSheet.create({
+//     container: {
+//         flex: 1,
+//         backgroundColor: '#fff',
+//         alignItems: 'center',
+//         justifyContent: 'center',
+//     },
+// });

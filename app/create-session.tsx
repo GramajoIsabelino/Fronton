@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useRouter } from 'expo-router';
 import {
   Pressable,
@@ -14,9 +14,14 @@ import {
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { ActionButton } from '../components/ActionButton';
-import { seasonSections } from '../data/temporadas';
+// import { seasonSections } from '../data/temporadas';
 import { styles } from './styles/HomeScreen.style';
 import { saveSession } from '../storage';
+import { crearJornada } from '../api/client';
+import { getTemporadas } from '../api/client';
+// import { SectionListComponent } from 'react-native';
+
+
 
 type Participant = { id: string; name: string };
 
@@ -29,7 +34,24 @@ export default function CreateSessionScreen() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [date, setDate] = useState<Date>(new Date());
   const [showPicker, setShowPicker] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const [temporadas, setTemporadas] = useState<any[]>([]);
+
+
+  useEffect(() => {
+    async function cargarTemporadas() {
+      try {
+        const data = await getTemporadas();
+        setTemporadas(data);
+      } catch (e) {
+        console.warn('Error cargando temporadas:', e);
+        setError('No se pudieron cargar las temporadas.');
+      }
+    }
+
+    cargarTemporadas();
+  }, []);
 
   const onChangeDate = (_event: DateTimePickerEvent, selectedDate?: Date) => {
     setShowPicker(false);
@@ -79,54 +101,75 @@ export default function CreateSessionScreen() {
         <View style={{ width: '100%', marginVertical: 16 }}>
           <Text style={styles.header}>Temporada</Text>
 
-          <SectionList
-            sections={seasonSections}
-            keyExtractor={(item) => item.id}
-            renderSectionHeader={({ section }) => <Text style={styles.header}>{section.name}</Text>}
-            renderItem={({ item }) => {
-              const selected = selectedId === item.id;
+          <View>
+            {temporadas.map((temporada) => {
+              const selected = selectedId === String(temporada.id);
+
               return (
                 <Pressable
-                  onPress={() => setSelectedId(item.id)}
-                  style={[styles.item, selected && styles.itemSelected] as StyleProp<ViewStyle>}
+                  key={temporada.id}
+                  onPress={() => setSelectedId(String(temporada.id))}
+                  style={[
+                    styles.item,
+                    selected && styles.itemSelected,
+                  ] as StyleProp<ViewStyle>}
                 >
-                  <View style={styles.radio}>{selected && <View style={styles.radioInner} />}</View>
-                  <Text style={[styles.itemText, selected && styles.itemTextSelected]}>{item.name}</Text>
+                  <View style={styles.radio}>
+                    {selected && <View style={styles.radioInner} />}
+                  </View>
+
+                  <Text
+                    style={[
+                      styles.itemText,
+                      selected && styles.itemTextSelected,
+                    ]}
+                  >
+                    {temporada.nombre}
+                  </Text>
                 </Pressable>
               );
-            }}
-            contentContainerStyle={{ paddingBottom: 24 }}
-          />
+            })}
+          </View>
         </View>
 
         <View style={{ width: '100%', marginTop: 24, gap: 12 }}>
+          {error && (
+            <Text style={{ color: 'red', marginTop: 12 }}>
+              {error}
+            </Text>
+          )}
           <ActionButton
             title="Crear jornada"
             subtitle="Guardar sesión"
             onPress={async () => {
-              // build session object and save
-              const id = `session-${Date.now()}`;
-              const session = {
-                id,
-                date: date.toISOString().slice(0, 10),
-                seasonId: selectedId ?? undefined,
-                players: participants.map((p) => p.name).filter(Boolean),
-                status: 'pendiente' as const,
-                createdAt: new Date().toISOString(),
-              };
+              setError(null);
+
+              if (!selectedId) {
+                setError('Debés seleccionar una temporada.');
+                return;
+              }
 
               try {
-                await saveSession(session);
-                // navigate back to home
+                const jornada = await crearJornada(Number(selectedId));
+
+                console.log('Jornada creada:', jornada);
+
                 router.push('/');
               } catch (e) {
-                console.warn('Error saving session', e);
+                console.warn('Error creando jornada:', e);
+                setError('No se pudo crear la jornada.');
               }
             }}
           />
+          {error && (
+            <Text style={{ color: 'red', marginTop: 12 }}>
+              {error}
+            </Text>
+          )}
 
           <Link href="/" asChild>
             <ActionButton title="Volver al inicio" variant="secondary" />
+
           </Link>
         </View>
       </ScrollView>
