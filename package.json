@@ -5,6 +5,7 @@
   "dependencies": {
     "@expo/metro-runtime": "~57.0.9",
     "@react-native-community/datetimepicker": "^9.1.0",
+    "@react-native-picker/picker": "2.11.4",
     "expo": "~57.0.17",
     "expo-constants": "~57.0.10",
     "expo-linking": "~57.0.8",

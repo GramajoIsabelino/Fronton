@@ -3,8 +3,8 @@ import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } fr
 import { Link } from 'expo-router';
 
 import { ActionButton } from '../components/ActionButton';
-import { activeSession, players as mockPlayers } from '../data/mockData';
 import { getSessions, saveSession } from '../storage';
+import { guardarPartido, getJugadores } from '../api/client';
 import type { MatchResult, PlayerScore, Session } from '../types';
 
 const TEAM_LIMIT = 2;
@@ -19,25 +19,39 @@ export default function SessionScreen() {
     const [teamA, setTeamA] = useState<string[]>([]);
     const [teamB, setTeamB] = useState<string[]>([]);
     const [winner, setWinner] = useState<'teamA' | 'teamB' | null>(null);
+    const [players, setPlayers] = useState<any[]>([]);
 
     useEffect(() => {
         (async () => {
-            const sessions = await getSessions();
-            const active = sessions.find((item) => item.status === 'en juego') ?? sessions[0] ?? activeSession;
-            setSession(active);
+            try {
+                const [sessions, jugadores] = await Promise.all([
+                    getSessions(),
+                    getJugadores(),
+                ]);
+
+                const active = sessions.find(
+                    (item) => item.status === 'en juego'
+                ) ?? sessions[0];
+
+                setSession(active ?? null);
+                setPlayers(jugadores);
+            } catch (error) {
+                console.error('Error cargando jornada y jugadores:', error);
+
+                Alert.alert(
+                    'Error',
+                    'No se pudieron cargar los jugadores.'
+                );
+            }
         })();
     }, []);
 
     const availablePlayers = useMemo(() => {
-        if (!session) return [];
-        return session.players.map((playerRef) => {
-            const found = mockPlayers.find((player) => player.id === playerRef);
-            return {
-                id: playerRef,
-                name: found?.name ?? String(playerRef),
-            };
-        });
-    }, [session]);
+        return players.map((player) => ({
+            id: String(player.id),
+            name: player.nombre,
+        }));
+    }, [players]);
 
     const isSessionClosed = session?.status === 'finalizada';
 
@@ -127,34 +141,89 @@ export default function SessionScreen() {
 
     const onSaveMatch = async () => {
         if (!session || isSessionClosed) return;
+
         if (teamA.length !== TEAM_LIMIT || teamB.length !== TEAM_LIMIT) {
-            Alert.alert('Faltan jugadores', 'Debes seleccionar 2 jugadores para cada cuadro.');
+            Alert.alert(
+                'Faltan jugadores',
+                'Debes seleccionar 2 jugadores para cada cuadro.'
+            );
             return;
         }
+
         if (!winner) {
-            Alert.alert('Falta ganador', 'Elegí qué equipo ganó el partido.');
+            Alert.alert(
+                'Falta ganador',
+                'Elegí qué equipo ganó el partido.'
+            );
             return;
         }
 
-        const match: MatchResult = {
-            id: `match-${Date.now()}`,
-            teamA,
-            teamB,
-            winner,
-            createdAt: new Date().toISOString(),
-        };
+        try {
+            const jornadaId = Number(session.id);
 
-        const updatedSession: Session = {
-            ...session,
-            matches: [...(session.matches ?? []), match],
-            status: 'en juego',
-        };
+            if (!Number.isInteger(jornadaId)) {
+                Alert.alert(
+                    'Error',
+                    'La jornada actual no tiene un ID válido.'
+                );
+                return;
+            }
 
-        await saveSession(updatedSession);
-        setSession(updatedSession);
-        setTeamA([]);
-        setTeamB([]);
-        setWinner(null);
+            const equipoA = teamA.map(Number);
+            const equipoB = teamB.map(Number);
+
+            if (
+                equipoA.some(Number.isNaN) ||
+                equipoB.some(Number.isNaN)
+            ) {
+                Alert.alert(
+                    'Error',
+                    'Uno de los jugadores seleccionados no tiene un ID válido.'
+                );
+                return;
+            }
+
+            await guardarPartido(
+                jornadaId,
+                equipoA,
+                equipoB,
+                winner === 'teamA' ? 'A' : 'B'
+            );
+
+            // Mantener actualizada la clasificación visual local
+            const match: MatchResult = {
+                id: `match-${Date.now()}`,
+                teamA,
+                teamB,
+                winner,
+                createdAt: new Date().toISOString(),
+            };
+
+            const updatedSession: Session = {
+                ...session,
+                matches: [...(session.matches ?? []), match],
+                status: 'en juego',
+            };
+
+            await saveSession(updatedSession);
+            setSession(updatedSession);
+
+            setTeamA([]);
+            setTeamB([]);
+            setWinner(null);
+
+            Alert.alert(
+                'Partido guardado',
+                'El partido se guardó correctamente.'
+            );
+        } catch (error) {
+            console.error('Error guardando partido:', error);
+
+            Alert.alert(
+                'Error',
+                'No se pudo guardar el partido.'
+            );
+        }
     };
 
     const onFinishSession = () => {

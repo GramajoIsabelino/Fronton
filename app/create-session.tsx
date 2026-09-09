@@ -1,175 +1,197 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useRouter } from 'expo-router';
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   ScrollView,
-  SectionList,
   Text,
   View,
-  TextInput,
-  StyleProp,
-  ViewStyle,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { ActionButton } from '../components/ActionButton';
-// import { seasonSections } from '../data/temporadas';
+import { crearJornada, getJugadores, getTemporadas, type ApiPlayer, type ApiSeason } from '../api/client';
 import { styles } from './styles/HomeScreen.style';
-import { saveSession } from '../storage';
-import { crearJornada } from '../api/client';
-import { getTemporadas } from '../api/client';
-// import { SectionListComponent } from 'react-native';
 
+type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
-
-type Participant = { id: string; name: string };
+function getName(item: ApiPlayer | ApiSeason): string {
+  return item.nombre ?? item.name ?? 'Sin nombre';
+}
 
 export default function CreateSessionScreen() {
-  // create a few empty participant slots by default
-  const [participants, setParticipants] = useState<Participant[]>(
-    Array.from({ length: 6 }, (_, i) => ({ id: String(i), name: '' }))
-  );
-
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [date, setDate] = useState<Date>(new Date());
+  const [players, setPlayers] = useState<ApiPlayer[]>([]);
+  const [seasons, setSeasons] = useState<ApiSeason[]>([]);
+  const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set());
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
+  const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
+  const [loadState, setLoadState] = useState<LoadState>('idle');
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const [temporadas, setTemporadas] = useState<any[]>([]);
 
+  const loadData = useCallback(async () => {
+    setLoadState('loading');
+    setError(null);
+
+    try {
+      const [playersData, seasonsData] = await Promise.all([getJugadores(), getTemporadas()]);
+      setPlayers(playersData);
+      setSeasons(seasonsData);
+      setLoadState('ready');
+    } catch (loadError) {
+      console.warn('Error cargando datos para crear jornada:', loadError);
+      setLoadState('error');
+      setError('No se pudieron cargar jugadores y temporadas.');
+    }
+  }, []);
 
   useEffect(() => {
-    async function cargarTemporadas() {
-      try {
-        const data = await getTemporadas();
-        setTemporadas(data);
-      } catch (e) {
-        console.warn('Error cargando temporadas:', e);
-        setError('No se pudieron cargar las temporadas.');
-      }
-    }
-
-    cargarTemporadas();
-  }, []);
+    void loadData();
+  }, [loadData]);
 
   const onChangeDate = (_event: DateTimePickerEvent, selectedDate?: Date) => {
     setShowPicker(false);
-    if (selectedDate) setDate(selectedDate);
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
   };
 
-  const updateParticipant = (id: string, value: string) => {
-    setParticipants((prev) => prev.map((p) => (p.id === id ? { ...p, name: value } : p)));
+  const togglePlayer = (playerId: number | string) => {
+    const id = String(playerId);
+    setSelectedPlayers((current) => {
+      const next = new Set(current);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const createSession = async () => {
+    setError(null);
+
+    if (!selectedSeasonId) {
+      setError('Seleccioná una temporada.');
+      return;
+    }
+
+    if (selectedPlayers.size === 0) {
+      setError('Seleccioná al menos un jugador.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await crearJornada(Number(selectedSeasonId));
+      router.replace('/');
+    } catch (saveError) {
+      console.warn('Error creando jornada:', saveError);
+      setError('No se pudo crear la jornada. Revisá la conexión e intentá nuevamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Crear jornada</Text>
         <Text style={styles.description}>
-          Aquí se seleccionará la fecha, la temporada, el grupo y los jugadores.
+          Elegí la fecha, la temporada y los jugadores que van a participar.
         </Text>
 
-        <Pressable onPress={() => setShowPicker(true)} style={{ marginVertical: 12 }}>
-          <Text style={{ color: '#222' }}>{date.toLocaleDateString()}</Text>
+        <Pressable onPress={() => setShowPicker(true)} style={styles.dateButton}>
+          <Text style={styles.dateLabel}>Fecha de la jornada</Text>
+          <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
         </Pressable>
 
-        {showPicker && (
+        {showPicker ? (
           <DateTimePicker value={date} mode="date" display="default" onChange={onChangeDate} />
-        )}
+        ) : null}
 
-        <View style={{ width: '100%', marginVertical: 16 }}>
-          <Text style={styles.header}>Ingrese los participantes</Text>
-          {participants.map((p) => (
-            <TextInput
-              key={p.id}
-              value={p.name}
-              onChangeText={(text) => updateParticipant(p.id, text)}
-              placeholder={`Jugador ${Number(p.id) + 1}`}
-              style={{
-                borderWidth: 1,
-                borderColor: '#ddd',
-                padding: 10,
-                borderRadius: 8,
-                marginTop: 8,
-                backgroundColor: '#fff',
-              }}
-            />
-          ))}
-        </View>
-
-        <View style={{ width: '100%', marginVertical: 16 }}>
-          <Text style={styles.header}>Temporada</Text>
-
-          <View>
-            {temporadas.map((temporada) => {
-              const selected = selectedId === String(temporada.id);
-
-              return (
-                <Pressable
-                  key={temporada.id}
-                  onPress={() => setSelectedId(String(temporada.id))}
-                  style={[
-                    styles.item,
-                    selected && styles.itemSelected,
-                  ] as StyleProp<ViewStyle>}
-                >
-                  <View style={styles.radio}>
-                    {selected && <View style={styles.radioInner} />}
-                  </View>
-
-                  <Text
-                    style={[
-                      styles.itemText,
-                      selected && styles.itemTextSelected,
-                    ]}
-                  >
-                    {temporada.nombre}
-                  </Text>
-                </Pressable>
-              );
-            })}
+        {loadState === 'loading' ? (
+          <View style={styles.loading}>
+            <ActivityIndicator color="#1F6FEB" />
+            <Text style={styles.helperText}>Cargando datos...</Text>
           </View>
+        ) : null}
+
+        <View style={styles.section}>
+          <Text style={styles.header}>Temporada</Text>
+          {loadState === 'ready' && seasons.length > 0 ? (
+            <View style={styles.list}>
+              {seasons.map((season, index) => {
+                const selected = selectedSeasonId === String(season.id);
+                return (
+                  <Pressable
+                    key={String(season.id)}
+                    onPress={() => setSelectedSeasonId(String(season.id))}
+                    style={[styles.item, selected && styles.itemSelected, index === seasons.length - 1 && styles.lastItem]}
+                  >
+                    <View style={styles.radio}>{selected ? <View style={styles.radioInner} /> : null}</View>
+                    <Text style={[styles.itemText, selected && styles.itemTextSelected]}>
+                      {getName(season)}{season.year ? ` ${season.year}` : ''}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : loadState === 'ready' ? (
+            <Text style={styles.helperText}>No hay temporadas disponibles.</Text>
+          ) : null}
         </View>
 
-        <View style={{ width: '100%', marginTop: 24, gap: 12 }}>
-          {error && (
-            <Text style={{ color: 'red', marginTop: 12 }}>
-              {error}
-            </Text>
-          )}
+        <View style={styles.section}>
+          <Text style={styles.header}>Jugadores</Text>
+          <Text style={styles.selectionCount}>
+            {selectedPlayers.size} {selectedPlayers.size === 1 ? 'jugador seleccionado' : 'jugadores seleccionados'}
+          </Text>
+          {loadState === 'ready' && players.length > 0 ? (
+            <View style={styles.list}>
+              {players.map((player, index) => {
+                const selected = selectedPlayers.has(String(player.id));
+                return (
+                  <Pressable
+                    key={String(player.id)}
+                    onPress={() => togglePlayer(player.id)}
+                    style={[styles.item, selected && styles.itemSelected, index === players.length - 1 && styles.lastItem]}
+                  >
+                    <View style={styles.checkbox}>{selected ? <Text style={styles.checkmark}>✓</Text> : null}</View>
+                    <Text style={[styles.itemText, selected && styles.itemTextSelected]}>{getName(player)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : loadState === 'ready' ? (
+            <Text style={styles.helperText}>No hay jugadores disponibles.</Text>
+          ) : null}
+        </View>
+
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {loadState === 'error' ? (
+          <Pressable onPress={() => void loadData()}>
+            <Text style={styles.retry}>Reintentar carga</Text>
+          </Pressable>
+        ) : null}
+
+        <View style={styles.actions}>
           <ActionButton
-            title="Crear jornada"
+            title={saving ? 'Creando...' : 'Crear jornada'}
             subtitle="Guardar sesión"
-            onPress={async () => {
-              setError(null);
-
-              if (!selectedId) {
-                setError('Debés seleccionar una temporada.');
-                return;
-              }
-
-              try {
-                const jornada = await crearJornada(Number(selectedId));
-
-                console.log('Jornada creada:', jornada);
-
-                router.push('/');
-              } catch (e) {
-                console.warn('Error creando jornada:', e);
-                setError('No se pudo crear la jornada.');
-              }
-            }}
+            onPress={() => void createSession()}
+            disabled={saving || loadState !== 'ready'}
           />
-          {error && (
-            <Text style={{ color: 'red', marginTop: 12 }}>
-              {error}
-            </Text>
-          )}
-
           <Link href="/" asChild>
             <ActionButton title="Volver al inicio" variant="secondary" />
-
           </Link>
         </View>
       </ScrollView>
