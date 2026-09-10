@@ -87,8 +87,16 @@ export default function CreateSessionScreen() {
 
     setSaving(true);
     try {
-      await crearJornada(Number(selectedSeasonId));
-      router.replace('/');
+      const jornada = await crearJornada(
+        Number(selectedSeasonId),
+        Array.from(selectedPlayers).map(Number)
+      );
+      router.push({
+        pathname: "/session",
+        params: {
+          jornadaId: String(jornada.id),
+        },
+      });
     } catch (saveError) {
       console.warn('Error creando jornada:', saveError);
       setError('No se pudo crear la jornada. Revisá la conexión e intentá nuevamente.');

@@ -1,18 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 
 import { ActionButton } from '../components/ActionButton';
-import { getSessions, saveSession } from '../storage';
-import { guardarPartido, getJugadores } from '../api/client';
-import type { MatchResult, PlayerScore, Session } from '../types';
+import {
+    guardarPartido,
+    getJugadores,
+    obtenerJornada,
+    obtenerEstadisticasJornada,
+    cerrarJornada,
+} from '../api/client';
+import type { Session } from '../types';
 
 const TEAM_LIMIT = 2;
 
-type StandingRow = PlayerScore & {
-    position: number;
-    status: 'leader' | 'rising' | 'falling' | 'neutral';
-};
+// type StandingRow = PlayerScore & {
+//     position: number;
+//     status: 'leader' | 'rising' | 'falling' | 'neutral';
+// };
 
 export default function SessionScreen() {
     const [session, setSession] = useState<Session | null>(null);
@@ -20,31 +25,72 @@ export default function SessionScreen() {
     const [teamB, setTeamB] = useState<string[]>([]);
     const [winner, setWinner] = useState<'teamA' | 'teamB' | null>(null);
     const [players, setPlayers] = useState<any[]>([]);
+    const [estadisticas, setEstadisticas] = useState<any[]>([]);
+
+    const { jornadaId } = useLocalSearchParams<{
+        jornadaId: string;
+    }>();
+
 
     useEffect(() => {
         (async () => {
             try {
-                const [sessions, jugadores] = await Promise.all([
-                    getSessions(),
-                    getJugadores(),
-                ]);
+                if (!jornadaId) {
+                    Alert.alert(
+                        'Error',
+                        'No se encontró el ID de la jornada.'
+                    );
+                    return;
+                }
 
-                const active = sessions.find(
-                    (item) => item.status === 'en juego'
-                ) ?? sessions[0];
+                const [jornada, jugadores, estadisticasJornada] =
+                    await Promise.all([
+                        obtenerJornada(Number(jornadaId)),
+                        getJugadores(),
+                        obtenerEstadisticasJornada(Number(jornadaId)),
+                    ]);
 
-                setSession(active ?? null);
-                setPlayers(jugadores);
+                setEstadisticas(
+                    estadisticasJornada.jugadores ?? []
+                );
+                const jugadoresJornada = new Set(
+                    (jornada.jugadores ?? []).map((id: number) => String(id))
+                );
+
+                const jugadoresSeleccionados = jugadores.filter(
+                    (player: any) =>
+                        jugadoresJornada.has(String(player.id))
+                );
+
+                setPlayers(jugadoresSeleccionados);
+
+                setSession({
+                    id: String(jornada.id),
+                    date: jornada.fecha,
+                    status:
+                        jornada.estado === 'finalizada'
+                            ? 'finalizada'
+                            : 'en juego',
+                    matches: [],
+                    players: jugadoresSeleccionados,
+                } as Session);
+
+
+
+
             } catch (error) {
-                console.error('Error cargando jornada y jugadores:', error);
+                console.error(
+                    'Error cargando jornada:',
+                    error
+                );
 
                 Alert.alert(
                     'Error',
-                    'No se pudieron cargar los jugadores.'
+                    'No se pudo cargar la jornada.'
                 );
             }
         })();
-    }, []);
+    }, [jornadaId]);
 
     const availablePlayers = useMemo(() => {
         return players.map((player) => ({
@@ -52,6 +98,19 @@ export default function SessionScreen() {
             name: player.nombre,
         }));
     }, [players]);
+
+    const standings = useMemo(() => {
+        return estadisticas.map((row, index) => ({
+            playerId: String(row.jugador_id),
+            name: row.nombre,
+            points: row.puntos,
+            wins: row.partidos_ganados,
+            losses: row.partidos_perdidos,
+            matchesPlayed: row.partidos_jugados,
+            matchesNotPlayed: row.partidos_no_jugados,
+            position: index + 1,
+        }));
+    }, [estadisticas]);
 
     const isSessionClosed = session?.status === 'finalizada';
 
@@ -81,63 +140,7 @@ export default function SessionScreen() {
         else setTeamB((prev) => [...prev, playerId]);
     };
 
-    const scoreRows = useMemo<PlayerScore[]>(() => {
-        if (!session) return [];
 
-        const allPlayers = availablePlayers;
-        const scoreMap = new Map<string, PlayerScore>();
-
-        for (const player of allPlayers) {
-            scoreMap.set(player.id, {
-                playerId: player.id,
-                name: player.name,
-                points: 0,
-                wins: 0,
-                losses: 0,
-                matchesPlayed: 0,
-            });
-        }
-
-        const matches = session.matches ?? [];
-
-        for (const match of matches) {
-            const markPlayers = (team: string[], isWinner: boolean) => {
-                for (const playerId of team) {
-                    const row = scoreMap.get(playerId);
-                    if (!row) continue;
-                    row.matchesPlayed += 1;
-                    if (isWinner) {
-                        row.points += 1;
-                        row.wins += 1;
-                    } else {
-                        row.losses += 1;
-                    }
-                }
-            };
-
-            markPlayers(match.teamA, match.winner === 'teamA');
-            markPlayers(match.teamB, match.winner === 'teamB');
-        }
-
-        return Array.from(scoreMap.values()).sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name));
-    }, [availablePlayers, session]);
-
-    const standings = useMemo<StandingRow[]>(() => {
-        const rows = scoreRows.map((row, index) => {
-            let status: StandingRow['status'] = 'neutral';
-            if (index === 0) status = 'leader';
-            else if (index < 2) status = 'rising';
-            else if (index >= Math.max(0, scoreRows.length - 2)) status = 'falling';
-
-            return {
-                ...row,
-                position: index + 1,
-                status,
-            };
-        });
-
-        return rows;
-    }, [scoreRows]);
 
     const onSaveMatch = async () => {
         if (!session || isSessionClosed) return;
@@ -159,9 +162,9 @@ export default function SessionScreen() {
         }
 
         try {
-            const jornadaId = Number(session.id);
+            const idJornada = Number(jornadaId);
 
-            if (!Number.isInteger(jornadaId)) {
+            if (!Number.isInteger(idJornada)) {
                 Alert.alert(
                     'Error',
                     'La jornada actual no tiene un ID válido.'
@@ -184,29 +187,18 @@ export default function SessionScreen() {
             }
 
             await guardarPartido(
-                jornadaId,
+                idJornada,
                 equipoA,
                 equipoB,
                 winner === 'teamA' ? 'A' : 'B'
             );
 
-            // Mantener actualizada la clasificación visual local
-            const match: MatchResult = {
-                id: `match-${Date.now()}`,
-                teamA,
-                teamB,
-                winner,
-                createdAt: new Date().toISOString(),
-            };
+            const nuevasEstadisticas =
+                await obtenerEstadisticasJornada(idJornada);
 
-            const updatedSession: Session = {
-                ...session,
-                matches: [...(session.matches ?? []), match],
-                status: 'en juego',
-            };
-
-            await saveSession(updatedSession);
-            setSession(updatedSession);
+            setEstadisticas(
+                nuevasEstadisticas.jugadores ?? []
+            );
 
             setTeamA([]);
             setTeamB([]);
@@ -235,15 +227,52 @@ export default function SessionScreen() {
                 text: 'Confirmar',
                 style: 'destructive',
                 onPress: async () => {
-                    const finalized: Session = {
-                        ...session,
-                        status: 'finalizada',
-                    };
+                    try {
+                        const idJornada = Number(jornadaId);
 
-                    await saveSession(finalized);
-                    setSession(finalized);
-                    Alert.alert('Jornada finalizada', 'La clasificación final quedó guardada.');
-                },
+                        if (!Number.isInteger(idJornada)) {
+                            Alert.alert(
+                                'Error',
+                                'La jornada actual no tiene un ID válido.'
+                            );
+                            return;
+                        }
+
+                        await cerrarJornada(idJornada);
+
+                        const estadisticasFinales =
+                            await obtenerEstadisticasJornada(idJornada);
+
+                        setEstadisticas(
+                            estadisticasFinales.jugadores ?? []
+                        );
+
+                        setSession((prev) =>
+                            prev
+                                ? {
+                                    ...prev,
+                                    status: 'finalizada',
+                                }
+                                : prev
+                        );
+
+                        Alert.alert(
+                            'Jornada finalizada',
+                            'La jornada se cerró correctamente.'
+                        );
+
+                    } catch (error) {
+                        console.error(
+                            'Error cerrando jornada:',
+                            error
+                        );
+
+                        Alert.alert(
+                            'Error',
+                            'No se pudo finalizar la jornada.'
+                        );
+                    }
+                }
             },
         ]);
     };
@@ -334,32 +363,58 @@ export default function SessionScreen() {
                 )}
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Clasificación en vivo</Text>
+                    <Text style={styles.sectionTitle}>
+                        Clasificación en vivo
+                    </Text>
+
                     {standings.length === 0 ? (
-                        <Text style={styles.placeholder}>Todavía no hubo resultados.</Text>
+                        <Text style={styles.placeholder}>
+                            Todavía no hubo resultados.
+                        </Text>
                     ) : (
                         standings.map((row) => (
                             <View
                                 key={row.playerId}
                                 style={[
                                     styles.standingRow,
-                                    row.status === 'leader' && styles.standingRowLeader,
-                                    row.status === 'rising' && styles.standingRowRising,
-                                    row.status === 'falling' && styles.standingRowFalling,
+                                    row.position === 1 && styles.standingRowLeader,
+                                    row.position > 1 &&
+                                    row.position <= 2 &&
+                                    styles.standingRowRising,
+                                    row.position >= standings.length - 1 &&
+                                    standings.length > 2 &&
+                                    styles.standingRowFalling,
                                 ]}
                             >
                                 <View style={styles.standingMeta}>
-                                    <View style={[styles.positionBadge, row.status === 'falling' && styles.positionBadgeFalling]}>
-                                        <Text style={styles.positionBadgeText}>#{row.position}</Text>
+                                    <View
+                                        style={[
+                                            styles.positionBadge,
+                                            row.position >= standings.length - 1 &&
+                                            standings.length > 2 &&
+                                            styles.positionBadgeFalling,
+                                        ]}
+                                    >
+                                        <Text style={styles.positionBadgeText}>
+                                            {row.position}
+                                        </Text>
                                     </View>
+
                                     <View>
-                                        <Text style={styles.scoreName}>{row.name}</Text>
+                                        <Text style={styles.scoreName}>
+                                            {row.name}
+                                        </Text>
+
                                         <Text style={styles.scoreSubtext}>
-                                            {row.wins}G · {row.losses}P · {row.matchesPlayed}PJ
+                                            {row.wins} ganados · {row.losses} perdidos ·{' '}
+                                            {row.matchesNotPlayed} no jugados
                                         </Text>
                                     </View>
                                 </View>
-                                <Text style={styles.scoreValue}>{row.points} pts</Text>
+
+                                <Text style={styles.scoreValue}>
+                                    {row.points} pts
+                                </Text>
                             </View>
                         ))
                     )}
