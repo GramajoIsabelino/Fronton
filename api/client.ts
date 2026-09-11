@@ -1,5 +1,7 @@
 import { MatchResult } from "../types";
 
+// import { obtenerJornadaActiva } from '../api/client';
+
 const API_URL = 'http://38.180.221.20:3000';
 
 export type ApiPlayer = {

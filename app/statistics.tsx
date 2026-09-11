@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'expo-router';
 import {
+    ImageBackground,
     SafeAreaView,
     ScrollView,
     StyleSheet,
@@ -56,6 +57,12 @@ export default function StatisticsScreen() {
     }
 
     return (
+        <ImageBackground
+            source={require('../images/0a4a026d4364efb0c8cbd442b8d9a805.jpg')}
+            style={styles.background}
+            imageStyle={styles.backgroundImage}
+            resizeMode="cover"
+        >
         <SafeAreaView style={styles.safeArea}>
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.titleRow}>
@@ -92,88 +99,39 @@ export default function StatisticsScreen() {
                             Ranking de jugadores
                         </Text>
 
-                        {jugadores.map((jugador, index) => (
-                            <View
-                                key={jugador.jugador_id}
-                                style={styles.playerCard}
-                            >
-                                <View style={styles.playerHeader}>
-                                    <View style={styles.position}>
-                                        <Text style={styles.positionText}>
-                                            #{index + 1}
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.playerInfo}>
-                                        <Text style={styles.playerName}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                            <View style={styles.table}>
+                                <View style={[styles.tableRow, styles.tableHeader]}>
+                                    <Text style={[styles.tableCell, styles.rankCell]}>#</Text>
+                                    <Text style={[styles.tableCell, styles.nameCell]}>Jugador</Text>
+                                    <Text style={styles.tableCell}>Pts</Text>
+                                    <Text style={styles.tableCell}>Jor</Text>
+                                    <Text style={styles.tableCell}>PJ</Text>
+                                    <Text style={styles.tableCell}>PG</Text>
+                                    <Text style={styles.tableCell}>PP</Text>
+                                    <Text style={styles.tableCell}>Prom.</Text>
+                                </View>
+                                {jugadores.map((jugador, index) => (
+                                    <View
+                                        key={jugador.jugador_id}
+                                        style={[styles.tableRow, index % 2 === 0 && styles.tableRowAlternate]}
+                                    >
+                                        <Text style={[styles.tableCell, styles.rankCell, styles.rankText]}>{index + 1}</Text>
+                                        <Text numberOfLines={1} style={[styles.tableCell, styles.nameCell, styles.nameText]}>
                                             {jugador.nombre}
                                         </Text>
-
-                                        <Text style={styles.points}>
-                                            {jugador.puntos} puntos
+                                        <Text style={[styles.tableCell, styles.valueText]}>{jugador.puntos}</Text>
+                                        <Text style={[styles.tableCell, styles.valueText]}>{jugador.jornadas}</Text>
+                                        <Text style={[styles.tableCell, styles.valueText]}>{jugador.partidos_jugados}</Text>
+                                        <Text style={[styles.tableCell, styles.valueText]}>{jugador.partidos_ganados}</Text>
+                                        <Text style={[styles.tableCell, styles.valueText]}>{jugador.partidos_perdidos}</Text>
+                                        <Text style={[styles.tableCell, styles.valueText]}>
+                                            {jugador.promedio_puntos_por_jornada.toFixed(2)}
                                         </Text>
                                     </View>
-                                </View>
-
-                                <View style={styles.statsGrid}>
-                                    <View style={styles.stat}>
-                                        <Text style={styles.statValue}>
-                                            {jugador.jornadas}
-                                        </Text>
-                                        <Text style={styles.statLabel}>
-                                            Jornadas
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.stat}>
-                                        <Text style={styles.statValue}>
-                                            {jugador.partidos_jugados}
-                                        </Text>
-                                        <Text style={styles.statLabel}>
-                                            Jugados
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.stat}>
-                                        <Text style={styles.statValue}>
-                                            {jugador.partidos_ganados}
-                                        </Text>
-                                        <Text style={styles.statLabel}>
-                                            Ganados
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.stat}>
-                                        <Text style={styles.statValue}>
-                                            {jugador.partidos_perdidos}
-                                        </Text>
-                                        <Text style={styles.statLabel}>
-                                            Perdidos
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.stat}>
-                                        <Text style={styles.statValue}>
-                                            {jugador.partidos_no_jugados}
-                                        </Text>
-                                        <Text style={styles.statLabel}>
-                                            No jugados
-                                        </Text>
-                                    </View>
-
-                                    <View style={styles.stat}>
-                                        <Text style={styles.statValue}>
-                                            {jugador.promedio_puntos_por_jornada.toFixed(
-                                                2
-                                            )}
-                                        </Text>
-                                        <Text style={styles.statLabel}>
-                                            Promedio
-                                        </Text>
-                                    </View>
-                                </View>
+                                ))}
                             </View>
-                        ))}
+                        </ScrollView>
                     </View>
                 )}
 
@@ -187,28 +145,31 @@ export default function StatisticsScreen() {
                 </View>
             </ScrollView>
         </SafeAreaView>
+        </ImageBackground>
     );
 }
 
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-
+        backgroundColor: 'transparent',
     },
+    background: { flex: 1 },
+    backgroundImage: { opacity: 0.38 },
 
     container: {
         padding: 24,
         paddingBottom: 40,
     },
     title: {
-        color: '#16263C',
-        fontSize: 28,
+        color: '#000000',
+        fontSize: 32,
         fontWeight: '800',
     },
 
     subtitle: {
-        color: '#7284A0',
-        fontSize: 16,
+        color: '#1F2937',
+        fontSize: 18,
         marginTop: 5,
         marginBottom: 16,
     },
@@ -221,7 +182,7 @@ const styles = StyleSheet.create({
     },
 
     loadingText: {
-        color: '#7284A0',
+        color: '#1F2937',
     },
 
     error: {
@@ -238,86 +199,71 @@ const styles = StyleSheet.create({
     },
 
     ranking: {
-        gap: 10,
-    },
-
-    sectionTitle: {
-        color: '#16263C',
-        fontSize: 19,
-        fontWeight: '700',
-        marginBottom: 2,
-    },
-
-    playerCard: {
-        // backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        padding: 12,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-
-    playerHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-
-    position: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        // backgroundColor: '#EAF0F7',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginRight: 12,
-    },
-
-    positionText: {
-        color: '#16263C',
-        fontWeight: '800',
-    },
-
-    playerInfo: {
-        flex: 1,
-    },
-
-    playerName: {
-        color: '#16263C',
-        fontSize: 17,
-        fontWeight: '800',
-    },
-
-    points: {
-        color: '#4B6584',
-        marginTop: 3,
-        fontSize: 14,
-    },
-
-    statsGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
         gap: 8,
     },
 
-    stat: {
-        width: '31%',
-        // backgroundColor: '#F4F7FB',
-        borderRadius: 10,
-        paddingVertical: 7,
-        alignItems: 'center',
+    sectionTitle: {
+        color: '#000000',
+        fontSize: 20,
+        fontWeight: '700',
+        marginBottom: 6,
     },
 
-    statValue: {
-        color: '#16263C',
-        fontSize: 18,
+    table: {
+        backgroundColor: 'rgba(255,255,255,0.92)',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        overflow: 'hidden',
+    },
+
+    tableRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        minHeight: 42,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+    },
+
+    tableHeader: {
+        minHeight: 36,
+        backgroundColor: '#F3F4F6',
+    },
+
+    tableRowAlternate: {
+        backgroundColor: '#F8FAFC',
+    },
+
+    tableCell: {
+        width: 52,
+        paddingHorizontal: 6,
+        color: '#374151',
+        fontSize: 13,
+        textAlign: 'center',
+    },
+
+    rankCell: {
+        width: 34,
+    },
+
+    nameCell: {
+        width: 130,
+        textAlign: 'left',
+    },
+
+    nameText: {
+        color: '#000000',
+        fontWeight: '700',
+    },
+
+    rankText: {
+        color: '#C2410C',
         fontWeight: '800',
     },
 
-    statLabel: {
-        color: '#7284A0',
-        fontSize: 11,
-        marginTop: 2,
-        textAlign: 'center',
+    valueText: {
+        color: '#000000',
+        fontWeight: '700',
     },
 
     backButton: {

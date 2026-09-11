@@ -23,7 +23,7 @@ export function ActionButton({
     const { colors } = useTheme();
     const containerStyle = [
         styles.button,
-        { backgroundColor: variant === 'secondary' ? colors.surfaceRaised : colors.accent, shadowColor: colors.shadow },
+        { backgroundColor: colors.accent, shadowColor: colors.shadow },
         disabled && styles.disabledButton,
         style,
     ];
@@ -32,8 +32,8 @@ export function ActionButton({
         <Pressable onPress={disabled ? undefined : onPress} style={containerStyle} disabled={disabled}>
             <View style={styles.content}>
                 <View>
-                    <Text style={[styles.title, { color: variant === 'secondary' ? colors.text : '#FFFFFF' }, disabled && styles.disabledTitle]}>{title}</Text>
-                    {subtitle ? <Text style={[styles.subtitle, { color: variant === 'secondary' ? colors.muted : '#FFF1E8' }, disabled && styles.disabledSubtitle]}>{subtitle}</Text> : null}
+                    <Text style={[styles.title, { color: '#FFFFFF' }, disabled && styles.disabledTitle]}>{title}</Text>
+                    {subtitle ? <Text style={[styles.subtitle, { color: '#FFF1E8' }, disabled && styles.disabledSubtitle]}>{subtitle}</Text> : null}
                 </View>
                 {iconSource ? <Image source={iconSource} style={styles.icon} /> : null}
             </View>
@@ -53,6 +53,7 @@ const styles = StyleSheet.create({
         shadowRadius: 12,
         shadowOffset: { width: 0, height: 5 },
         elevation: 3,
+        overflow: 'hidden',
     },
     content: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     icon: { width: 48, height: 48, borderRadius: 24, opacity: 0.82 },
@@ -65,14 +66,14 @@ const styles = StyleSheet.create({
     },
     title: {
         color: '#fff',
-        fontSize: 20,
+        fontSize: 22,
         fontWeight: '700',
         textAlign: 'center',
     },
     subtitle: {
         color: '#dfeaff',
         marginTop: 6,
-        fontSize: 13,
+        fontSize: 15,
         textAlign: 'center',
     },
     disabledTitle: {

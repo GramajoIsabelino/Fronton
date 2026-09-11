@@ -5,7 +5,7 @@ import { Alert, SafeAreaView, ScrollView, Text, View } from 'react-native';
 import { ActionButton } from '../../components/ActionButton';
 import { eliminarJornada, obtenerJornada } from '../../api/client';
 import { createScreenStyles } from '../styles/HomeScreen.style';
-import { ThemeToggle, useTheme } from '../../theme';
+import { useTheme } from '../../theme';
 import type { Session } from '../../types';
 
 export default function SessionDetail() {
@@ -137,10 +137,7 @@ export default function SessionDetail() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Text style={styles.title}>Jornada · {session.date}</Text>
-          <ThemeToggle />
-        </View>
+        <Text style={styles.title}>Jornada · {session.date}</Text>
 
         <View style={{ marginVertical: 12 }}>
           <Text style={styles.header}>Jugadores</Text>

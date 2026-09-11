@@ -6,27 +6,21 @@ import {
     StyleSheet,
     Text,
     View,
-    Pressable,
     Alert,
+    ImageBackground, // <-- 1. Importamos ImageBackground
 } from 'react-native';
 
 import { ActionButton } from '../components/ActionButton';
-import { getSessions } from '../storage';
 import { obtenerJornadaActiva } from '../api/client';
-import type { Session } from '../types';
-import { ThemeToggle, useTheme } from '../theme';
+import { useTheme } from '../theme';
 
 export default function HomeScreen() {
     const { colors } = useTheme();
-    const [sessions, setSessions] = useState<Session[]>([]);
     const [jornadaActiva, setJornadaActiva] = useState<any | null>(null);
     const router = useRouter();
 
     useEffect(() => {
         (async () => {
-            const s = await getSessions();
-            setSessions(s);
-
             try {
                 const jornada = await obtenerJornadaActiva();
                 setJornadaActiva(jornada);
@@ -57,93 +51,66 @@ export default function HomeScreen() {
     };
 
     return (
-        <SafeAreaView style={[styles.safeArea,]}>
-            <ScrollView contentContainerStyle={styles.container}>
-                <View style={styles.header}>
-                    <View style={styles.topLine}><View><Text style={[styles.eyebrow, { color: colors.accent }]}>FRONTÓN · ONWARD</Text><Text style={[styles.title, { color: colors.text }]}>a lo azul!!!!</Text></View><ThemeToggle /></View>
-                </View>
-
-                <View style={styles.actions}>
-                    <Link href="/create-session" asChild>
-                        <ActionButton
-                            title="Crear jornada"
-                            subtitle="Nueva fecha y jugadores"
-                        />
-                    </Link>
-
-                    <Link href="/statistics" asChild>
-                        <ActionButton
-                            title="Estadísticas"
-                            subtitle="Historial y temporada"
-                            variant="secondary"
-                        />
-                    </Link>
-
-                    {jornadaActiva ? (
-                        <ActionButton
-                            title="Jornada en juego"
-                            subtitle={`Hoy · ${jornadaActiva.fecha}`}
-                            variant="primary"
-                            onPress={abrirJornadaActiva}
-                        />
-                    ) : null}
-
-                    <View style={{ marginTop: 30 }}>
-                        <Text
-                            style={{
-                                fontSize: 19,
-                                fontWeight: '700',
-                                marginBottom: 12,
-                                color: colors.text,
-                            }}
-                        >
-                            Jornadas guardadas
-                        </Text>
-
-                        {sessions.length === 0 ? (
-                            <Text style={{ color: colors.muted }}>
-                                No hay jornadas aún.
-                            </Text>
-                        ) : (
-                            sessions.map((s) => (
-                                <Link
-                                    key={s.id}
-                                    href={`/session-detail/${s.id}`}
-                                    asChild
-                                >
-                                    <Pressable
-                                        style={[styles.sessionCard, { backgroundColor: colors.surfaceRaised, shadowColor: colors.shadow }]}
-                                    >
-                                        <Text
-                                            style={{
-                                                fontWeight: '700', color: colors.text,
-                                            }}
-                                        >
-                                            {s.date}
-                                        </Text>
-
-                                        <Text
-                                            style={{
-                                                color: colors.muted,
-                                            }}
-                                        >
-                                            {s.players.length} jugadores
-                                        </Text>
-                                    </Pressable>
-                                </Link>
-                            ))
-                        )}
+        /* 2. Envolvemos todo en ImageBackground apuntando a tu imagen */
+        <ImageBackground
+            source={require('../images/0a4a026d4364efb0c8cbd442b8d9a805.jpg')} // <-- Cambia esta ruta por la real de tu imagen
+            style={styles.backgroundImage}
+            resizeMode="cover"
+        >
+            <SafeAreaView style={[styles.safeArea]}>
+                <ScrollView contentContainerStyle={styles.container}>
+                    <View style={styles.header}>
+                        <View style={styles.topLine}>
+                            <View>
+                                <Text style={[styles.eyebrow, { color: '#FFFFFF' }]}>FRONTÓN · ONWARD</Text>
+                                <Text style={[styles.title, { color: '#FFFFFF' }]}>a lo azul!!!!</Text>
+                            </View>
+                        </View>
                     </View>
-                </View>
-            </ScrollView>
-        </SafeAreaView>
+
+                    <View style={styles.actions}>
+                        <Link href="/create-session" asChild>
+                            <ActionButton
+                                title="Crear jornada"
+                                subtitle="Nueva fecha y jugadores"
+                            />
+                        </Link>
+
+                        <Link href="/statistics" asChild>
+                            <ActionButton
+                                title="Estadísticas"
+                                subtitle="Historial y temporada"
+                                variant="secondary"
+                            />
+                        </Link>
+
+                        {jornadaActiva ? (
+                            <ActionButton
+                                title="Jornada en juego"
+                                subtitle={`Hoy · ${jornadaActiva.fecha}`}
+                                variant="primary"
+                                onPress={abrirJornadaActiva}
+                            />
+                        ) : null}
+
+                    </View>
+                </ScrollView>
+            </SafeAreaView>
+        </ImageBackground>
     );
 }
 
 const styles = StyleSheet.create({
+    /* 3. Estilo clave para que la imagen cubra toda la pantalla */
+    backgroundImage: {
+        flex: 1,
+        width: '100%',
+        height: '100%',
+    },
+
     safeArea: {
         flex: 1,
-        backgroundColor: 'transparent',
+        backgroundColor: 'transparent', // Fundamental para que no tape la imagen de fondo
     },
 
     container: {
@@ -163,18 +130,16 @@ const styles = StyleSheet.create({
     },
 
     eyebrow: {
-        color: '#4B6584',
-        fontSize: 13,
-        fontWeight: '600',
+        fontSize: 15,
+        fontWeight: '800',
         letterSpacing: 1.2,
         textTransform: 'uppercase',
         marginBottom: 8,
     },
 
     title: {
-        color: '#16263C',
-        fontSize: 28,
-        fontWeight: '700',
+        fontSize: 34,
+        fontWeight: '800',
         letterSpacing: -0.7,
     },
 

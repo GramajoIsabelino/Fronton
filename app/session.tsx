@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, ImageBackground, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
 
 
@@ -12,7 +12,7 @@ import {
     cerrarJornada,
 } from '../api/client';
 import type { Session } from '../types';
-import { ThemeToggle, useTheme } from '../theme';
+import { useTheme } from '../theme';
 
 const TEAM_LIMIT = 2;
 
@@ -317,24 +317,27 @@ export default function SessionScreen() {
 
     if (!session) {
         return (
+            <ImageBackground source={require('../images/0a4a026d4364efb0c8cbd442b8d9a805.jpg')} style={styles.background} imageStyle={styles.backgroundImage} resizeMode="cover">
             <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
                 <View style={styles.container}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}><Text style={[styles.title, { color: colors.text }]}>Jornada en juego</Text><ThemeToggle /></View>
+                    <Text style={[styles.title, { color: colors.text }]}>Jornada en juego</Text>
                     <Text style={styles.placeholder}>
                         Cargando sesión...
                     </Text>
                 </View>
             </SafeAreaView>
+            </ImageBackground>
         );
     }
 
 
 
     return (
+        <ImageBackground source={require('../images/0a4a026d4364efb0c8cbd442b8d9a805.jpg')} style={styles.background} imageStyle={styles.backgroundImage} resizeMode="cover">
         <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
             <ScrollView contentContainerStyle={styles.container}>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}><Text style={[styles.title, { color: colors.text }]}>Jornada en juego</Text><ThemeToggle /></View>
+                <Text style={[styles.title, { color: colors.text }]}>Jornada en juego</Text>
 
                 <Text style={styles.description}>
                     Seleccioná 2 jugadores para cada equipo.
@@ -539,11 +542,18 @@ export default function SessionScreen() {
 
             </ScrollView>
         </SafeAreaView>
+        </ImageBackground>
     );
 
 }
 
 const styles = StyleSheet.create({
+    background: {
+        flex: 1,
+    },
+    backgroundImage: {
+        opacity: 0.38,
+    },
     safeArea: {
         flex: 1,
         backgroundColor: 'transparent',
@@ -576,7 +586,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
     section: {
-        backgroundColor: '#fff',
+        // backgroundColor: '#fff',
         borderRadius: 18,
         padding: 16,
         shadowColor: '#000',

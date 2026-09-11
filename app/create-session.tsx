@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
+  ImageBackground,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -13,7 +14,7 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 import { ActionButton } from '../components/ActionButton';
 import { crearJornada, getJugadores, getTemporadas, type ApiPlayer, type ApiSeason } from '../api/client';
 import { createScreenStyles } from './styles/HomeScreen.style';
-import { ThemeToggle, useTheme } from '../theme';
+import { useTheme } from '../theme';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -109,6 +110,12 @@ export default function CreateSessionScreen() {
   };
 
   return (
+    <ImageBackground
+      source={require('../images/0a4a026d4364efb0c8cbd442b8d9a805.jpg')}
+      style={styles.background}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
         contentContainerStyle={styles.container}
@@ -117,7 +124,6 @@ export default function CreateSessionScreen() {
       >
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Text style={styles.title}>Crear jornada</Text>
-          <ThemeToggle />
         </View>
         <Text style={styles.description}>
           Elegí la fecha, la temporada y los jugadores que van a participar.
@@ -211,5 +217,6 @@ export default function CreateSessionScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </ImageBackground>
   );
 }
