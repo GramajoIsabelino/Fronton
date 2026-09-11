@@ -1,154 +1,33 @@
 import { StyleSheet } from 'react-native';
+import type { AppColors } from '../../theme';
 
-
-
-export const styles = StyleSheet.create({
-    safeArea: {
-        flex: 1,
-        backgroundColor: 'hsl(218, 28%, 48%)',
-    },
-    container: {
-        flexGrow: 1,
-        padding: 24,
-        paddingBottom: 40,
-    },
-    title: {
-        color: '#16263C',
-        fontSize: 32,
-        fontWeight: '800',
-        marginBottom: 12,
-    },
-    description: {
-        color: '#465A75',
-        fontSize: 16,
-        lineHeight: 24,
-        marginBottom: 20,
-    },
-    placeholder: {
-        color: '#7284A0',
-        fontSize: 15,
-        marginBottom: 28,
-    },
-    // container: {
-    //     padding: 16,
-    // },
-    header: {
-        color: '#16263C',
-        fontSize: 18,
-        fontWeight: '700',
-        marginBottom: 10,
-    },
-    section: {
-        marginTop: 22,
-    },
-    dateButton: {
-        backgroundColor: '#FFFFFF',
-        borderColor: '#DCE5F0',
-        borderRadius: 12,
-        borderWidth: 1,
-        padding: 14,
-    },
-    dateLabel: {
-        color: '#7284A0',
-        fontSize: 12,
-        marginBottom: 4,
-    },
-    dateText: {
-        color: '#16263C',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    list: {
-        backgroundColor: '#FFFFFF',
-        borderColor: '#DCE5F0',
-        borderRadius: 12,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    item: {
-        alignItems: 'center',
-        borderBottomColor: '#EDF1F6',
-        borderBottomWidth: 1,
-        flexDirection: 'row',
-        minHeight: 52,
-        paddingHorizontal: 14,
-    },
-    lastItem: {
-        borderBottomWidth: 0,
-    },
-    itemText: {
-        color: '#263B55',
-        flex: 1,
-        fontSize: 15,
-        marginLeft: 12,
-    },
-    itemSelected: {
-        backgroundColor: '#EEF5FF',
-    },
-    itemTextSelected: {
-        color: '#1F6FEB',
-        fontWeight: '700',
-    },
-    selectionCount: {
-        color: '#7284A0',
-        fontSize: 13,
-        marginBottom: 8,
-    },
-    helperText: {
-        color: '#7284A0',
-        fontSize: 14,
-        padding: 14,
-    },
-    loading: {
-        alignItems: 'center',
-        flexDirection: 'row',
-        marginTop: 22,
-    },
-    checkbox: {
-        alignItems: 'center',
-        borderColor: '#9BAEC5',
-        borderRadius: 5,
-        borderWidth: 2,
-        height: 22,
-        justifyContent: 'center',
-        width: 22,
-    },
-    checkmark: {
-        color: '#1F6FEB',
-        fontSize: 16,
-        fontWeight: '800',
-    },
-    actions: {
-        gap: 12,
-        marginTop: 28,
-    },
-    error: {
-        color: '#B42318',
-        fontSize: 14,
-        marginTop: 12,
-    },
-    retry: {
-        color: '#1F6FEB',
-        fontSize: 14,
-        fontWeight: '700',
-        marginTop: 8,
-    },
-
-    radio: {
-        width: 22,
-        height: 22,
-        borderRadius: 11,
-        borderWidth: 2,
-        borderColor: '#555',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-
-    radioInner: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
-        backgroundColor: '#007AFF',
-    },
-
-});
+export function createScreenStyles(colors: AppColors) {
+  return StyleSheet.create({
+    safeArea: { flex: 1, backgroundColor: colors.background },
+    container: { flexGrow: 1, padding: 22, paddingBottom: 42 },
+    title: { color: colors.text, fontSize: 28, lineHeight: 34, fontWeight: '700', letterSpacing: -0.7 },
+    description: { color: colors.muted, fontSize: 14.5, lineHeight: 20, letterSpacing: 0.3, marginBottom: 20 },
+    placeholder: { color: colors.muted, fontSize: 14.5, marginBottom: 20 },
+    header: { color: colors.text, fontSize: 19, lineHeight: 24, fontWeight: '700', letterSpacing: 0.6, marginBottom: 10 },
+    section: { marginTop: 22 },
+    dateButton: { backgroundColor: colors.surfaceRaised, borderRadius: 16, padding: 16, shadowColor: colors.shadow, shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
+    dateLabel: { color: colors.muted, fontSize: 12, marginBottom: 5 },
+    dateText: { color: colors.text, fontSize: 16, fontWeight: '700' },
+    list: { backgroundColor: colors.surfaceRaised, borderRadius: 16, overflow: 'hidden', shadowColor: colors.shadow, shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
+    item: { alignItems: 'center', flexDirection: 'row', minHeight: 54, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.track },
+    lastItem: { borderBottomWidth: 0 },
+    itemText: { color: colors.text, flex: 1, fontSize: 14.5, marginLeft: 12 },
+    itemSelected: { backgroundColor: colors.accentSoft },
+    itemTextSelected: { color: colors.accent, fontWeight: '700' },
+    selectionCount: { color: colors.muted, fontSize: 13, marginBottom: 8 },
+    helperText: { color: colors.muted, fontSize: 14, padding: 14 },
+    loading: { alignItems: 'center', flexDirection: 'row', marginTop: 22, gap: 10 },
+    checkbox: { alignItems: 'center', borderColor: colors.muted, borderRadius: 7, borderWidth: 2, height: 22, justifyContent: 'center', width: 22 },
+    checkmark: { color: colors.accent, fontSize: 16, fontWeight: '800' },
+    actions: { gap: 12, marginTop: 28 },
+    error: { color: colors.danger, fontSize: 14, marginTop: 12 },
+    retry: { color: colors.accent, fontSize: 14, fontWeight: '700', marginTop: 8 },
+    radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.muted, justifyContent: 'center', alignItems: 'center' },
+    radioInner: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.accent },
+  });
+}

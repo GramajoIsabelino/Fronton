@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Link, useLocalSearchParams, useRouter } from 'expo-router';
+
 
 import { ActionButton } from '../components/ActionButton';
 import {
@@ -11,6 +12,7 @@ import {
     cerrarJornada,
 } from '../api/client';
 import type { Session } from '../types';
+import { ThemeToggle, useTheme } from '../theme';
 
 const TEAM_LIMIT = 2;
 
@@ -20,6 +22,7 @@ const TEAM_LIMIT = 2;
 // };
 
 export default function SessionScreen() {
+    const { colors } = useTheme();
     const [session, setSession] = useState<Session | null>(null);
     const [teamA, setTeamA] = useState<string[]>([]);
     const [teamB, setTeamB] = useState<string[]>([]);
@@ -27,6 +30,8 @@ export default function SessionScreen() {
     const [players, setPlayers] = useState<any[]>([]);
     const [estadisticas, setEstadisticas] = useState<any[]>([]);
 
+
+    const router = useRouter();
     const { jornadaId } = useLocalSearchParams<{
         jornadaId: string;
     }>();
@@ -43,13 +48,24 @@ export default function SessionScreen() {
                     return;
                 }
 
-                const [jornada, jugadores, estadisticasJornada] =
-                    await Promise.all([
-                        obtenerJornada(Number(jornadaId)),
-                        getJugadores(),
-                        obtenerEstadisticasJornada(Number(jornadaId)),
-                    ]);
+                const [jornada, jugadores] = await Promise.all([
+                    obtenerJornada(Number(jornadaId)),
+                    getJugadores(),
+                ]);
 
+                let estadisticasJornada;
+
+                try {
+                    estadisticasJornada = await obtenerEstadisticasJornada(
+                        Number(jornadaId)
+                    );
+                } catch (error) {
+                    console.error('Error cargando estadísticas:', error);
+
+                    estadisticasJornada = {
+                        jugadores: [],
+                    };
+                }
                 setEstadisticas(
                     estadisticasJornada.jugadores ?? []
                 );
@@ -64,18 +80,42 @@ export default function SessionScreen() {
 
                 setPlayers(jugadoresSeleccionados);
 
+                const matches = (jornada.partidos ?? []).map((partido: any) => ({
+                    id: String(partido.id),
+                    sessionId: String(jornada.id),
+                    winner: partido.ganador,
+                    players: [
+                        ...(partido.equipo_a ?? []).map((jugador: any) => ({
+                            playerId: String(jugador.jugador_id),
+                            team: 'A' as const,
+                            points: Number(jugador.puntos),
+                        })),
+                        ...(partido.equipo_b ?? []).map((jugador: any) => ({
+                            playerId: String(jugador.jugador_id),
+                            team: 'B' as const,
+                            points: Number(jugador.puntos),
+                        })),
+                    ],
+                    createdAt: '',
+                }));
+
                 setSession({
                     id: String(jornada.id),
                     date: jornada.fecha,
+                    seasonId: String(jornada.temporada_id),
+                    groupId: '',
                     status:
                         jornada.estado === 'finalizada'
                             ? 'finalizada'
                             : 'en juego',
-                    matches: [],
-                    players: jugadoresSeleccionados,
-                } as Session);
+                    matches,
+                    players: jugadoresSeleccionados.map((jugador: any) =>
+                        String(jugador.id)
+                    ),
+                    createdAt: '',
+                });
 
-
+                console.log('SESSION CON PARTIDOS:', matches);
 
 
             } catch (error) {
@@ -218,184 +258,236 @@ export default function SessionScreen() {
         }
     };
 
-    const onFinishSession = () => {
-        if (!session) return;
 
-        Alert.alert('Terminar jornada', '¿Confirmás que querés cerrar la jornada y guardar la clasificación final?', [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-                text: 'Confirmar',
-                style: 'destructive',
-                onPress: async () => {
-                    try {
-                        const idJornada = Number(jornadaId);
 
-                        if (!Number.isInteger(idJornada)) {
-                            Alert.alert(
-                                'Error',
-                                'La jornada actual no tiene un ID válido.'
-                            );
-                            return;
-                        }
+    const onFinishSession = async () => {
+        console.log('CLICK FINALIZAR JORNADA');
 
-                        await cerrarJornada(idJornada);
+        if (!session) {
+            console.log('No hay session');
+            return;
+        }
 
-                        const estadisticasFinales =
-                            await obtenerEstadisticasJornada(idJornada);
+        const idJornada = Number(jornadaId);
 
-                        setEstadisticas(
-                            estadisticasFinales.jugadores ?? []
-                        );
+        console.log('ID JORNADA:', idJornada);
 
-                        setSession((prev) =>
-                            prev
-                                ? {
-                                    ...prev,
-                                    status: 'finalizada',
-                                }
-                                : prev
-                        );
+        if (!Number.isInteger(idJornada)) {
+            Alert.alert('Error', 'La jornada actual no tiene un ID válido.');
+            return;
+        }
 
-                        Alert.alert(
-                            'Jornada finalizada',
-                            'La jornada se cerró correctamente.'
-                        );
+        try {
+            console.log('Cerrando jornada...');
 
-                    } catch (error) {
-                        console.error(
-                            'Error cerrando jornada:',
-                            error
-                        );
+            const resultado = await cerrarJornada(idJornada);
 
-                        Alert.alert(
-                            'Error',
-                            'No se pudo finalizar la jornada.'
-                        );
+            console.log('JORNADA CERRADA:', resultado);
+
+            setSession((current) =>
+                current
+                    ? {
+                        ...current,
+                        status: 'finalizada',
                     }
-                }
-            },
-        ]);
+                    : current
+            );
+
+            Alert.alert(
+                'Jornada finalizada',
+                'La jornada se cerró correctamente.',
+                [
+                    {
+                        text: 'Aceptar',
+                        onPress: () => router.replace('/'),
+                    },
+                ]
+            );
+        } catch (error) {
+            console.error('ERROR CERRANDO JORNADA:', error);
+
+            Alert.alert(
+                'Error',
+                'No se pudo finalizar la jornada.'
+            );
+        }
     };
+
+
 
     if (!session) {
         return (
-            <SafeAreaView style={styles.safeArea}>
+            <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
                 <View style={styles.container}>
-                    <Text style={styles.title}>Jornada en juego</Text>
-                    <Text style={styles.placeholder}>Cargando sesión...</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}><Text style={[styles.title, { color: colors.text }]}>Jornada en juego</Text><ThemeToggle /></View>
+                    <Text style={styles.placeholder}>
+                        Cargando sesión...
+                    </Text>
                 </View>
             </SafeAreaView>
         );
     }
 
+
+
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
             <ScrollView contentContainerStyle={styles.container}>
-                <Text style={styles.title}>Jornada en juego</Text>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}><Text style={[styles.title, { color: colors.text }]}>Jornada en juego</Text><ThemeToggle /></View>
+
                 <Text style={styles.description}>
-                    {isSessionClosed
-                        ? 'La jornada está cerrada. Se guardó la clasificación final.'
-                        : 'Anotá cada partido y se actualiza la tabla del día.'}
+                    Seleccioná 2 jugadores para cada equipo.
                 </Text>
 
-                {!isSessionClosed ? (
-                    <>
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Cuadro A</Text>
-                            <View style={styles.playerGrid}>
-                                {availablePlayers.map((player) => {
-                                    const selected = teamA.includes(player.id);
-                                    return (
-                                        <Pressable
-                                            key={`a-${player.id}`}
-                                            onPress={() => togglePlayer('teamA', player.id)}
-                                            style={[styles.playerChip, selected && styles.playerChipSelected]}
-                                        >
-                                            <Text style={[styles.playerChipText, selected && styles.playerChipTextSelected]}>{player.name}</Text>
-                                        </Pressable>
-                                    );
-                                })}
-                            </View>
-                        </View>
-
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>Cuadro B</Text>
-                            <View style={styles.playerGrid}>
-                                {availablePlayers.map((player) => {
-                                    const selected = teamB.includes(player.id);
-                                    return (
-                                        <Pressable
-                                            key={`b-${player.id}`}
-                                            onPress={() => togglePlayer('teamB', player.id)}
-                                            style={[styles.playerChip, selected && styles.playerChipSelectedAlt]}
-                                        >
-                                            <Text style={[styles.playerChipText, selected && styles.playerChipTextSelected]}>{player.name}</Text>
-                                        </Pressable>
-                                    );
-                                })}
-                            </View>
-                        </View>
-
-                        <View style={styles.section}>
-                            <Text style={styles.sectionTitle}>¿Quién ganó?</Text>
-                            <View style={styles.winnerRow}>
-                                <Pressable
-                                    onPress={() => setWinner('teamA')}
-                                    style={[styles.winnerButton, winner === 'teamA' && styles.winnerButtonActive]}
-                                >
-                                    <Text style={styles.winnerButtonText}>Cuadro A</Text>
-                                </Pressable>
-                                <Pressable
-                                    onPress={() => setWinner('teamB')}
-                                    style={[styles.winnerButton, winner === 'teamB' && styles.winnerButtonActiveAlt]}
-                                >
-                                    <Text style={styles.winnerButtonText}>Cuadro B</Text>
-                                </Pressable>
-                            </View>
-                        </View>
-
-                        <ActionButton title="Guardar partido" onPress={onSaveMatch} />
-                    </>
-                ) : (
-                    <View style={styles.alertBanner}>
-                        <Text style={styles.alertBannerText}>Jornada cerrada. No se permiten más partidos.</Text>
-                    </View>
-                )}
-
+                {/* EQUIPO A */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>
-                        Clasificación en vivo
+                        Equipo A
+                    </Text>
+
+                    <View style={styles.playerGrid}>
+                        {availablePlayers.map((player) => {
+                            const selected = teamA.includes(player.id);
+
+                            return (
+                                <Pressable
+                                    key={player.id}
+                                    onPress={() =>
+                                        togglePlayer('teamA', player.id)
+                                    }
+                                    style={[
+                                        styles.playerChip,
+                                        selected &&
+                                        styles.playerChipSelected,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.playerChipText,
+                                            selected &&
+                                            styles.playerChipTextSelected,
+                                        ]}
+                                    >
+                                        {player.name}
+                                    </Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                </View>
+
+                {/* EQUIPO B */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>
+                        Equipo B
+                    </Text>
+
+                    <View style={styles.playerGrid}>
+                        {availablePlayers.map((player) => {
+                            const selected = teamB.includes(player.id);
+
+                            return (
+                                <Pressable
+                                    key={player.id}
+                                    onPress={() =>
+                                        togglePlayer('teamB', player.id)
+                                    }
+                                    style={[
+                                        styles.playerChip,
+                                        selected &&
+                                        styles.playerChipSelectedAlt,
+                                    ]}
+                                >
+                                    <Text
+                                        style={[
+                                            styles.playerChipText,
+                                            selected &&
+                                            styles.playerChipTextSelected,
+                                        ]}
+                                    >
+                                        {player.name}
+                                    </Text>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                </View>
+
+                {/* GANADOR */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>
+                        Ganador
+                    </Text>
+
+                    <View style={styles.winnerRow}>
+                        <Pressable
+                            disabled={
+                                isSessionClosed ||
+                                teamA.length !== TEAM_LIMIT ||
+                                teamB.length !== TEAM_LIMIT
+                            }
+                            onPress={() => setWinner('teamA')}
+                            style={[
+                                styles.winnerButton,
+                                winner === 'teamA' &&
+                                styles.winnerButtonActive,
+                            ]}
+                        >
+                            <Text style={styles.winnerButtonText}>
+                                Equipo A
+                            </Text>
+                        </Pressable>
+
+                        <Pressable
+                            disabled={
+                                isSessionClosed ||
+                                teamA.length !== TEAM_LIMIT ||
+                                teamB.length !== TEAM_LIMIT
+                            }
+                            onPress={() => setWinner('teamB')}
+                            style={[
+                                styles.winnerButton,
+                                winner === 'teamB' &&
+                                styles.winnerButtonActiveAlt,
+                            ]}
+                        >
+                            <Text style={styles.winnerButtonText}>
+                                Equipo B
+                            </Text>
+                        </Pressable>
+                    </View>
+                </View>
+
+                {/* GUARDAR PARTIDO */}
+                <ActionButton
+                    title="Guardar partido"
+                    onPress={onSaveMatch}
+                />
+
+                {/* CLASIFICACIÓN */}
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>
+                        Clasificación
                     </Text>
 
                     {standings.length === 0 ? (
                         <Text style={styles.placeholder}>
-                            Todavía no hubo resultados.
+                            Todavía no hay partidos registrados.
                         </Text>
                     ) : (
                         standings.map((row) => (
                             <View
                                 key={row.playerId}
-                                style={[
-                                    styles.standingRow,
-                                    row.position === 1 && styles.standingRowLeader,
-                                    row.position > 1 &&
-                                    row.position <= 2 &&
-                                    styles.standingRowRising,
-                                    row.position >= standings.length - 1 &&
-                                    standings.length > 2 &&
-                                    styles.standingRowFalling,
-                                ]}
+                                style={styles.standingRow}
                             >
                                 <View style={styles.standingMeta}>
-                                    <View
-                                        style={[
-                                            styles.positionBadge,
-                                            row.position >= standings.length - 1 &&
-                                            standings.length > 2 &&
-                                            styles.positionBadgeFalling,
-                                        ]}
-                                    >
-                                        <Text style={styles.positionBadgeText}>
+                                    <View style={styles.positionBadge}>
+                                        <Text
+                                            style={
+                                                styles.positionBadgeText
+                                            }
+                                        >
                                             {row.position}
                                         </Text>
                                     </View>
@@ -406,8 +498,9 @@ export default function SessionScreen() {
                                         </Text>
 
                                         <Text style={styles.scoreSubtext}>
-                                            {row.wins} ganados · {row.losses} perdidos ·{' '}
-                                            {row.matchesNotPlayed} no jugados
+                                            {row.wins} ganados ·{' '}
+                                            {row.losses} perdidos ·{' '}
+                                            {row.matchesPlayed} jugados
                                         </Text>
                                     </View>
                                 </View>
@@ -420,27 +513,40 @@ export default function SessionScreen() {
                     )}
                 </View>
 
+                {/* FINALIZAR */}
                 {!isSessionClosed && (
                     <ActionButton
-                        title="Terminar jornada"
-                        subtitle="Guardar clasificación final"
+                        title="Finalizar jornada"
                         onPress={onFinishSession}
                         variant="secondary"
                     />
                 )}
 
+                {isSessionClosed && (
+                    <View style={styles.alertBanner}>
+                        <Text style={styles.alertBannerText}>
+                            Esta jornada ya está finalizada.
+                        </Text>
+                    </View>
+                )}
+
                 <Link href="/" asChild>
-                    <ActionButton title="Volver al inicio" variant="secondary" />
+                    <ActionButton
+                        title="Volver al inicio"
+                        variant="secondary"
+                    />
                 </Link>
+
             </ScrollView>
         </SafeAreaView>
     );
+
 }
 
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#F4F7FB',
+        backgroundColor: 'transparent',
     },
     container: {
         flexGrow: 1,

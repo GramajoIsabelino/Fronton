@@ -12,7 +12,8 @@ import DateTimePicker, { type DateTimePickerEvent } from '@react-native-communit
 
 import { ActionButton } from '../components/ActionButton';
 import { crearJornada, getJugadores, getTemporadas, type ApiPlayer, type ApiSeason } from '../api/client';
-import { styles } from './styles/HomeScreen.style';
+import { createScreenStyles } from './styles/HomeScreen.style';
+import { ThemeToggle, useTheme } from '../theme';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -21,6 +22,8 @@ function getName(item: ApiPlayer | ApiSeason): string {
 }
 
 export default function CreateSessionScreen() {
+  const { colors } = useTheme();
+  const styles = createScreenStyles(colors);
   const [players, setPlayers] = useState<ApiPlayer[]>([]);
   const [seasons, setSeasons] = useState<ApiSeason[]>([]);
   const [selectedPlayers, setSelectedPlayers] = useState<Set<string>>(new Set());
@@ -112,7 +115,10 @@ export default function CreateSessionScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Crear jornada</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Text style={styles.title}>Crear jornada</Text>
+          <ThemeToggle />
+        </View>
         <Text style={styles.description}>
           Elegí la fecha, la temporada y los jugadores que van a participar.
         </Text>
@@ -128,7 +134,7 @@ export default function CreateSessionScreen() {
 
         {loadState === 'loading' ? (
           <View style={styles.loading}>
-            <ActivityIndicator color="#1F6FEB" />
+            <ActivityIndicator color={colors.accent} />
             <Text style={styles.helperText}>Cargando datos...</Text>
           </View>
         ) : null}
@@ -197,6 +203,7 @@ export default function CreateSessionScreen() {
             subtitle="Guardar sesión"
             onPress={() => void createSession()}
             disabled={saving || loadState !== 'ready'}
+            iconSource={require('../assets/fronton-logo.png')}
           />
           <Link href="/" asChild>
             <ActionButton title="Volver al inicio" variant="secondary" />

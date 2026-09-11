@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text, type StyleProp, type ViewStyle } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View, type ImageSourcePropType, type StyleProp, type ViewStyle } from 'react-native';
+import { useTheme } from '../theme';
 
 interface ActionButtonProps {
     title: string;
@@ -7,6 +8,7 @@ interface ActionButtonProps {
     variant?: 'primary' | 'secondary';
     style?: StyleProp<ViewStyle>;
     disabled?: boolean;
+    iconSource?: ImageSourcePropType;
 }
 
 export function ActionButton({
@@ -16,18 +18,25 @@ export function ActionButton({
     variant = 'primary',
     style,
     disabled = false,
+    iconSource,
 }: ActionButtonProps) {
+    const { colors } = useTheme();
     const containerStyle = [
         styles.button,
-        variant === 'secondary' ? styles.secondaryButton : styles.primaryButton,
+        { backgroundColor: variant === 'secondary' ? colors.surfaceRaised : colors.accent, shadowColor: colors.shadow },
         disabled && styles.disabledButton,
         style,
     ];
 
     return (
         <Pressable onPress={disabled ? undefined : onPress} style={containerStyle} disabled={disabled}>
-            <Text style={[styles.title, disabled && styles.disabledTitle]}>{title}</Text>
-            {subtitle ? <Text style={[styles.subtitle, disabled && styles.disabledSubtitle]}>{subtitle}</Text> : null}
+            <View style={styles.content}>
+                <View>
+                    <Text style={[styles.title, { color: variant === 'secondary' ? colors.text : '#FFFFFF' }, disabled && styles.disabledTitle]}>{title}</Text>
+                    {subtitle ? <Text style={[styles.subtitle, { color: variant === 'secondary' ? colors.muted : '#FFF1E8' }, disabled && styles.disabledSubtitle]}>{subtitle}</Text> : null}
+                </View>
+                {iconSource ? <Image source={iconSource} style={styles.icon} /> : null}
+            </View>
         </Pressable>
     );
 }
@@ -40,22 +49,16 @@ const styles = StyleSheet.create({
         minHeight: 88,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.16,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 5 },
         elevation: 3,
-        backgroundColor: '#1F6FEB',
-        borderWidth: 1,
-        borderColor: '#1F6FEB',
     },
+    content: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+    icon: { width: 48, height: 48, borderRadius: 24, opacity: 0.82 },
     primaryButton: {
-        backgroundColor: '#1F6FEB',
-        borderColor: '#1F6FEB',
     },
     secondaryButton: {
-        backgroundColor: '#1F6FEB',
-        borderColor: '#1F6FEB',
     },
     disabledButton: {
         opacity: 0.55,

@@ -30,6 +30,7 @@ export interface Session {
     players: string[];
     status: SessionStatus;
     createdAt: string;
+    matches: Match[];
 }
 
 export interface MatchPlayer {

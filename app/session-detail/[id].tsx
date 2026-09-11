@@ -1,16 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocalSearchParams, useRouter } from 'expo-router';
-import { Alert, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, Text, View } from 'react-native';
 
 import { ActionButton } from '../../components/ActionButton';
-import { deleteSession, getSession, saveSession } from '../../storage';
-import { styles } from '../styles/HomeScreen.style';
+import { eliminarJornada, obtenerJornada } from '../../api/client';
+import { createScreenStyles } from '../styles/HomeScreen.style';
+import { ThemeToggle, useTheme } from '../../theme';
 import type { Session } from '../../types';
 
 export default function SessionDetail() {
   const params = useLocalSearchParams();
   const id = String(params.id ?? '');
+
+  console.log('PARAMS:', params);
+  console.log('JORNADA ID:', id);
+  console.log('JORNADA ID NUMBER:', Number(id));
+
   const router = useRouter();
+  const { colors } = useTheme();
+  const styles = createScreenStyles(colors);
 
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,10 +27,50 @@ export default function SessionDetail() {
     let mounted = true;
 
     (async () => {
-      const found = await getSession(id);
-      if (mounted) {
-        setSession(found);
-        setLoading(false);
+      try {
+        const jornada = await obtenerJornada(Number(id));
+
+        if (!mounted) return;
+
+        setSession({
+          id: String(jornada.id),
+          date: jornada.fecha,
+          seasonId: String(jornada.temporada_id),
+          groupId: '',
+          players: (jornada.jugadores ?? []).map((player: any) =>
+            String(player)
+          ),
+          status:
+            jornada.estado === 'finalizada'
+              ? 'finalizada'
+              : 'en juego',
+          createdAt: '',
+          matches: (jornada.partidos ?? []).map((partido: any) => ({
+            id: String(partido.id),
+            sessionId: String(jornada.id),
+            winner: partido.ganador,
+            players: [
+              ...(partido.equipo_a ?? []).map((jugador: any) => ({
+                playerId: String(jugador.jugador_id),
+                team: 'A' as const,
+                points: Number(jugador.puntos),
+              })),
+              ...(partido.equipo_b ?? []).map((jugador: any) => ({
+                playerId: String(jugador.jugador_id),
+                team: 'B' as const,
+                points: Number(jugador.puntos),
+              })),
+            ],
+            createdAt: '',
+          })),
+        });
+      } catch (error) {
+        console.error('Error cargando jornada:', error);
+        Alert.alert('Error', 'No se pudo cargar la jornada.');
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
       }
     })();
 
@@ -31,9 +79,46 @@ export default function SessionDetail() {
     };
   }, [id]);
 
+  const onDelete = () => {
+    if (!session) return;
+
+    Alert.alert(
+      'Eliminar jornada',
+      '¿Estás seguro de que querés eliminar esta jornada?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await eliminarJornada(Number(session.id));
+
+              Alert.alert(
+                'Jornada eliminada',
+                'La jornada se eliminó correctamente.'
+              );
+
+              router.replace('/');
+            } catch (error) {
+              console.error('Error eliminando jornada:', error);
+              Alert.alert(
+                'Error',
+                'No se pudo eliminar la jornada.'
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
         <Text style={styles.placeholder}>Cargando...</Text>
       </SafeAreaView>
     );
@@ -41,72 +126,56 @@ export default function SessionDetail() {
 
   if (!session) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <Text style={styles.placeholder}>Sesión no encontrada</Text>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
+        <Text style={styles.placeholder}>
+          Jornada no encontrada
+        </Text>
       </SafeAreaView>
     );
   }
 
-  const updatePlayers = (index: number, value: string) => {
-    const players = [...session.players];
-    players[index] = value;
-    setSession({ ...session, players });
-  };
-
-  const onSave = async () => {
-    await saveSession(session);
-    router.push('/');
-  };
-
-  const onDelete = () => {
-    Alert.alert('Eliminar jornada', '¿Estás seguro?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteSession(session.id);
-          router.push('/');
-        },
-      },
-    ]);
-  };
-
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: 'transparent' }]}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Jornada · {session.date}</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <Text style={styles.title}>Jornada · {session.date}</Text>
+          <ThemeToggle />
+        </View>
 
         <View style={{ marginVertical: 12 }}>
           <Text style={styles.header}>Jugadores</Text>
-          {session.players.map((player, index) => (
-            <TextInput
+
+          {session.players.map((playerId, index) => (
+            <Text
               key={`${session.id}-${index}`}
-              value={player}
-              onChangeText={(text) => updatePlayers(index, text)}
               style={{
+                marginTop: 8,
+                padding: 10,
                 borderWidth: 1,
                 borderColor: '#ddd',
-                padding: 10,
                 borderRadius: 8,
-                marginTop: 8,
                 backgroundColor: '#fff',
               }}
-            />
+            >
+              Jugador #{playerId}
+            </Text>
           ))}
         </View>
 
         <View style={{ marginTop: 20 }}>
-          <ActionButton title="Guardar cambios" onPress={onSave} />
-        </View>
-
-        <View style={{ marginTop: 12 }}>
-          <ActionButton title="Eliminar jornada" onPress={onDelete} variant="secondary" />
+          <ActionButton
+            title="Eliminar jornada"
+            onPress={onDelete}
+            variant="secondary"
+          />
         </View>
 
         <View style={{ marginTop: 24 }}>
           <Link href="/" asChild>
-            <ActionButton title="Volver al inicio" variant="secondary" />
+            <ActionButton
+              title="Volver al inicio"
+              variant="secondary"
+            />
           </Link>
         </View>
       </ScrollView>

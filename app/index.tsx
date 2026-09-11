@@ -1,33 +1,74 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'expo-router';
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable } from 'react-native';
+import { Link, useRouter } from 'expo-router';
+import {
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+    Pressable,
+    Alert,
+} from 'react-native';
 
 import { ActionButton } from '../components/ActionButton';
-import { activeSession as _active } from '../data/mockData';
 import { getSessions } from '../storage';
+import { obtenerJornadaActiva } from '../api/client';
 import type { Session } from '../types';
+import { ThemeToggle, useTheme } from '../theme';
 
 export default function HomeScreen() {
+    const { colors } = useTheme();
     const [sessions, setSessions] = useState<Session[]>([]);
+    const [jornadaActiva, setJornadaActiva] = useState<any | null>(null);
+    const router = useRouter();
 
     useEffect(() => {
         (async () => {
             const s = await getSessions();
             setSessions(s);
+
+            try {
+                const jornada = await obtenerJornadaActiva();
+                setJornadaActiva(jornada);
+            } catch (error) {
+                setJornadaActiva(null);
+            }
         })();
     }, []);
 
+    const abrirJornadaActiva = async () => {
+        try {
+            const jornada = await obtenerJornadaActiva();
+
+            router.push({
+                pathname: '/session',
+                params: {
+                    jornadaId: String(jornada.id),
+                },
+            });
+        } catch (error) {
+            console.error('Error obteniendo jornada activa:', error);
+
+            Alert.alert(
+                'Jornada en juego',
+                'No hay una jornada en juego actualmente.'
+            );
+        }
+    };
+
     return (
-        <SafeAreaView style={styles.safeArea}>
+        <SafeAreaView style={[styles.safeArea,]}>
             <ScrollView contentContainerStyle={styles.container}>
                 <View style={styles.header}>
-                    <Text style={styles.eyebrow}>Frontón</Text>
-                    <Text style={styles.title}>Inicio</Text>
+                    <View style={styles.topLine}><View><Text style={[styles.eyebrow, { color: colors.accent }]}>FRONTÓN · ONWARD</Text><Text style={[styles.title, { color: colors.text }]}>a lo azul!!!!</Text></View><ThemeToggle /></View>
                 </View>
 
                 <View style={styles.actions}>
                     <Link href="/create-session" asChild>
-                        <ActionButton title="Crear jornada" subtitle="Nueva fecha y jugadores" />
+                        <ActionButton
+                            title="Crear jornada"
+                            subtitle="Nueva fecha y jugadores"
+                        />
                     </Link>
 
                     <Link href="/statistics" asChild>
@@ -38,27 +79,56 @@ export default function HomeScreen() {
                         />
                     </Link>
 
-                    {_active ? (
-                        <Link href="/session" asChild>
-                            <ActionButton
-                                title="Jornada en juego"
-                                subtitle={`Hoy · ${_active.date}`}
-                                variant="primary"
-                            />
-                        </Link>
+                    {jornadaActiva ? (
+                        <ActionButton
+                            title="Jornada en juego"
+                            subtitle={`Hoy · ${jornadaActiva.fecha}`}
+                            variant="primary"
+                            onPress={abrirJornadaActiva}
+                        />
                     ) : null}
 
-                    {/* Saved sessions list */}
-                    <View style={{ marginTop: 24 }}>
-                        <Text style={{ fontSize: 20, fontWeight: '700', marginBottom: 12 }}>Jornadas guardadas</Text>
+                    <View style={{ marginTop: 30 }}>
+                        <Text
+                            style={{
+                                fontSize: 19,
+                                fontWeight: '700',
+                                marginBottom: 12,
+                                color: colors.text,
+                            }}
+                        >
+                            Jornadas guardadas
+                        </Text>
+
                         {sessions.length === 0 ? (
-                            <Text style={{ color: '#7284A0' }}>No hay jornadas aún.</Text>
+                            <Text style={{ color: colors.muted }}>
+                                No hay jornadas aún.
+                            </Text>
                         ) : (
                             sessions.map((s) => (
-                                <Link key={s.id} href={`/session-detail/${s.id}`} asChild>
-                                    <Pressable style={{ paddingVertical: 12 }}>
-                                        <Text style={{ fontWeight: '700' }}>{s.date}</Text>
-                                        <Text style={{ color: '#7284A0' }}>{s.players.length} jugadores</Text>
+                                <Link
+                                    key={s.id}
+                                    href={`/session-detail/${s.id}`}
+                                    asChild
+                                >
+                                    <Pressable
+                                        style={[styles.sessionCard, { backgroundColor: colors.surfaceRaised, shadowColor: colors.shadow }]}
+                                    >
+                                        <Text
+                                            style={{
+                                                fontWeight: '700', color: colors.text,
+                                            }}
+                                        >
+                                            {s.date}
+                                        </Text>
+
+                                        <Text
+                                            style={{
+                                                color: colors.muted,
+                                            }}
+                                        >
+                                            {s.players.length} jugadores
+                                        </Text>
                                     </Pressable>
                                 </Link>
                             ))
@@ -73,16 +143,25 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#F4F7FB',
+        backgroundColor: 'transparent',
     },
+
     container: {
         flexGrow: 1,
         padding: 24,
         justifyContent: 'center',
     },
+
     header: {
         marginBottom: 24,
     },
+    topLine: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        gap: 12,
+    },
+
     eyebrow: {
         color: '#4B6584',
         fontSize: 13,
@@ -91,67 +170,25 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
         marginBottom: 8,
     },
+
     title: {
         color: '#16263C',
-        fontSize: 36,
-        fontWeight: '800',
+        fontSize: 28,
+        fontWeight: '700',
+        letterSpacing: -0.7,
     },
+
     actions: {
         gap: 16,
     },
+    sessionCard: {
+        paddingVertical: 15,
+        paddingHorizontal: 16,
+        borderRadius: 15,
+        marginBottom: 9,
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 3 },
+        elevation: 2,
+    },
 });
-
-
-
-// import { StatusBar } from 'expo-status-bar';
-// import { useState } from 'react';
-// import { Button, StyleSheet, Text, View } from 'react-native';
-// import { getJugadores } from '../api/client';
-
-// export default function App() {
-//     const [jugadores, setJugadores] = useState<any[]>([]);
-//     const [error, setError] = useState('');
-
-//     async function cargarJugadores() {
-//         try {
-//             setError('');
-
-//             const data = await getJugadores();
-
-//             setJugadores(data);
-//         } catch (error) {
-//             setError('No se pudieron cargar los jugadores');
-//             console.error(error);
-//         }
-//     }
-
-//     return (
-//         <View style={styles.container}>
-//             <Text>Frontón</Text>
-
-//             <Button
-//                 title="Cargar jugadores"
-//                 onPress={cargarJugadores}
-//             />
-
-//             {error !== '' && <Text>{error}</Text>}
-
-//             {jugadores.map((jugador) => (
-//                 <Text key={jugador.id}>
-//                     {jugador.nombre}
-//                 </Text>
-//             ))}
-
-//             <StatusBar style="auto" />
-//         </View>
-//     );
-// }
-
-// const styles = StyleSheet.create({
-//     container: {
-//         flex: 1,
-//         backgroundColor: '#fff',
-//         alignItems: 'center',
-//         justifyContent: 'center',
-//     },
-// });

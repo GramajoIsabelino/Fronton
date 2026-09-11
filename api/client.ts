@@ -140,11 +140,14 @@ export async function cerrarJornada(jornadaId: number) {
             headers: {
                 "Content-Type": "application/json",
             },
+            body: JSON.stringify({}),
         }
     );
 
     if (!response.ok) {
         const error = await response.text();
+
+        console.error("Error cerrar jornada:", error);
 
         throw new Error(
             `Error al cerrar jornada: ${error}`
@@ -167,6 +170,31 @@ export async function obtenerEstadisticasAnio(
         throw new Error(
             `Error al obtener estadísticas del año: ${error}`
         );
+    }
+
+    return response.json();
+}
+
+export async function eliminarJornada(jornadaId: number) {
+    const response = await fetch(`${API_URL}/jornadas/${jornadaId}`, {
+        method: "DELETE",
+    });
+
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Error al eliminar jornada: ${error}`);
+    }
+
+    return response.json();
+}
+
+
+export async function obtenerJornadaActiva() {
+    const response = await fetch(`${API_URL}/jornadas/activa`);
+
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Error al obtener jornada activa: ${error}`);
     }
 
     return response.json();
